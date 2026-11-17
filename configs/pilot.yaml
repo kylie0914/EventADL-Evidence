@@ -1,0 +1,26 @@
+seed: 42
+video:
+  detection_fps: 2.0
+  resize_width: 640
+events:
+  pre_seconds: 5.0
+  post_seconds: 3.0
+  merge_gap_seconds: 2.0
+  min_active_samples: 2
+  min_inactive_samples: 2
+  overlap_threshold: 0.8
+triggers:
+  motion_threshold: 0.08
+  hand_threshold: 0.35
+  object_threshold: 0.50
+  active_object_threshold: 0.35
+  active_object_max_distance: 0.20
+  fusion_weights:
+    motion: 0.25
+    hand: 0.25
+    active_object: 0.50
+vlm:
+  model_id: HuggingFaceTB/SmolVLM2-2.2B-Instruct
+  max_new_tokens: 160
+  sampled_frames: 8
+
