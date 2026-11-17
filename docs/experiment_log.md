@@ -1,43 +1,66 @@
-# Experiment log
+# Experiment Log
 
-> 이 문서는 초기 기록 보존용이다. 이후 실제 진행 기록의 단일 기준본은
-> `docs/actual_execution_log.md`다.
+This compact public log records only reproducible, non-sensitive milestones. Detailed private command history, raw video, generated frames, and model caches are not published.
 
-## Collaboration rule
+## Collaboration and reproducibility rules
 
-- The user directly runs all environment setup, downloads, and experiment commands.
-- The assistant writes required project code, then explains the implementation, inputs,
-  outputs, execution command, and verification criteria.
-- Large datasets and models are downloaded incrementally only after the user reviews the
-  exact command and intended subset.
+- Environment setup, downloads, and experiment commands are run locally.
+- Large datasets and models are downloaded incrementally after selecting the required subset.
+- Every reported result should include the model ID, input scope, command or script, output path, and verification criterion.
+- Tokens, credentials, private media, and machine-specific absolute paths must never be recorded here.
 
 ## Environment setup
 
 - Date: 2026-11-15 (America/New_York)
-- Workspace: `$PROJECT_ROOT`
-- Miniconda: already installed at `$HOME/miniconda3`
-- Conda version observed before setup: `25.3.1`
-- System FFmpeg observed before setup: `6.1.1`
-- Environment strategy: use the named environment `adl-event-logger`, activated with
-  `conda activate adl-event-logger`.
-- Base package verification: OpenCV 4.14.0; imports for pandas, NumPy, PyYAML, and
-  Pydantic succeeded.
-- GPU verified in the user's terminal: NVIDIA GeForce RTX 3090, 24576 MiB VRAM.
-- NVIDIA driver: 580.159.04; driver-reported CUDA compatibility: 13.0.
-- PyTorch CUDA GPU computation verified: a 4000×4000 matrix multiplication completed on
-  `cuda:0`; peak allocated VRAM reported by the test was 132.1 MiB.
-- Next step: install and verify the common Transformers/video inference dependencies.
-- Full command history: see `docs/setup_log.md`.
+- Main environment: `adl-event-logger`
+- Conda: 25.3.1
+- FFmpeg: 6.1.1
+- OpenCV: 4.14.0
+- GPU: NVIDIA GeForce RTX 3090, 24576 MiB VRAM
+- NVIDIA driver: 580.159.04
+- Driver-reported CUDA compatibility: 13.0
+- PyTorch GPU test: 4000 x 4000 matrix multiplication on `cuda:0`
+- Test peak allocation: 132.1 MiB
 
-# 실험 실행 기록
+See `docs/setup_log.md` for installation commands and resolved errors.
 
-## SmolVLM2 비디오 smoke test
+## SmolVLM2 video smoke test
 
-- 상태: 성공
-- 모델: `HuggingFaceTB/SmolVLM2-2.2B-Instruct`
-- 입력: `data/smoke/test.mp4` (`nateraw/video-demo/archery.mp4`)
-- 출력: `Two women are practicing archery on a grassy field.`
-- 추론 시간: 0.9085초
-- 최대 VRAM: 4585.855MiB
-- 결론: RTX 3090에서 비디오 decoding과 2.2B VLM 추론이 정상 동작함
+- Status: passed
+- Model: `HuggingFaceTB/SmolVLM2-2.2B-Instruct`
+- Input: `data/smoke/test.mp4` from the public `nateraw/video-demo/archery.mp4` sample
+- Output: `Two women are practicing archery on a grassy field.`
+- Inference time: 0.9085 seconds
+- Peak allocated VRAM: 4585.855 MiB
+- Conclusion: local video decoding and 2.2B VLM inference worked on the RTX 3090.
 
+## EPIC-KITCHENS pilot
+
+- Video: `P04_01`
+- Duration: 1154.7726 seconds
+- GT action intervals: 262
+- Purpose: development pilot for timestamp validation, trigger comparison, VLM benchmarking, and failure analysis
+- Limitation: one action-dense kitchen video is not a held-out or clinical benchmark
+
+## Temporal selection
+
+| Method | Recall at 80% GT coverage | Mean GT coverage | Storage reduction |
+| --- | ---: | ---: | ---: |
+| v3 change evidence | 35.50% | 43.41% | 62.76% |
+| v4 complete interaction episode | 83.59% | 85.97% | 12.60% |
+
+The complete-episode method preserved substantially more action context, while the short change-triggered clips saved more storage.
+
+## VLM benchmark
+
+On 43 shared v3 evidence clips, Qwen3-VL-4B achieved a 100% valid-JSON rate, averaged 1.12 seconds per clip, and used approximately 8.8 GiB peak allocated VRAM. This was the best practical balance in the pilot, not a universal model ranking.
+
+## Second-pass action verification
+
+- Candidates reviewed: 33
+- Verified: 18
+- Rejected: 15
+- Known false cutting description: removed
+- Known brief true slice: still missed because it was absent from first-pass candidates
+
+The verifier reduced false positives but could not recover first-pass omissions.

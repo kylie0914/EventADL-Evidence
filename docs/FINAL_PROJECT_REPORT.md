@@ -1,48 +1,60 @@
-# 최종 구현 보고서: Offline Event-Based ADL Pipeline
+# Final Implementation Report: Offline Event-Based ADL Pipeline
 
-## 1. 구현 결과
+## 1. Implemented system
 
-연속 1인칭 영상에서 100DOH interaction을 검출하고 variable-length episode를 생성한 뒤, 여러 VLM으로 행동 JSON을 만들고 정량 평가하는 offline pipeline을 구현했다.
+The project implements an offline pipeline that detects 100DOH hand-object interactions in continuous egocentric video, creates variable-length episodes, produces structured action JSON with local VLMs, and evaluates temporal coverage, storage, speed, memory use, and label quality.
 
-## 2. 구현 변화
+## 2. How the implementation evolved
 
-- **v0:** MediaPipe hand, Faster R-CNN object, 거리 heuristic으로 전체 연결을 확인했다.
-- **v1:** 100DOH learned interaction detector를 별도 환경에 설치했다.
-- **v2/v3:** lifecycle, object change, contact-state change, motion 조건으로 짧은 evidence clip을 만들었다.
-- **v4:** interaction 시작부터 종료까지 완전한 episode를 저장하고 3 FPS adaptive VLM input을 적용했다.
-- **Verifier:** 실제 cutting 오탐을 발견한 뒤 action candidate별 2차 시각 검증을 추가했다.
+- **v0:** MediaPipe hands, Faster R-CNN objects, and a distance heuristic established the end-to-end data flow.
+- **v1:** the learned 100DOH interaction detector was installed in a separate legacy environment.
+- **v2/v3:** lifecycle, object-change, contact-state-change, and motion triggers produced short evidence clips around changes.
+- **v4:** complete interaction episodes were saved from start to end, with adaptive 3 FPS VLM input.
+- **Verifier:** after observing a false cutting description, a second visual pass was added for each action candidate.
 
-## 3. Temporal selection 결과
+## 3. Temporal-selection results
 
-| Method | Recall@80% | Mean GT coverage | Storage reduction |
+| Method | Recall at 80% GT coverage | Mean GT coverage | Storage reduction |
 | --- | ---: | ---: | ---: |
 | v3 change evidence | 35.50% | 43.41% | 62.76% |
-| v4 complete episode | 83.59% | 85.97% | 12.60% |
+| v4 complete interaction episode | 83.59% | 85.97% | 12.60% |
 
-v3는 저장 효율이 높지만 행동 전체를 잃었다. v4는 행동 보존을 크게 높였지만 action-dense kitchen video에서 저장 감소가 작았다.
+v3 reduced storage more aggressively but lost much of each action. v4 preserved actions far better, but storage reduction was modest on the action-dense kitchen pilot.
 
-## 4. VLM 비교 결과
+![Temporal selection trade-off](results/v3_vs_v4_tradeoff.png)
 
-43개 v3 evidence clips의 pilot에서 Qwen3-VL-4B는 JSON valid 100%, 평균 1.12초, peak VRAM 약 8.8 GiB를 기록했다. 이 protocol에서는 SmolVLM2와 InternVL보다 정확도와 속도의 균형이 좋았다.
+## 4. VLM comparison
 
-Exact label score는 낮았다. 한 clip에 여러 GT action이 겹치지만 primary GT 하나만 정답으로 사용했고, VLM 용어와 EPIC taxonomy의 문자열 차이도 모두 오답으로 계산했기 때문이다.
+On the same 43 v3 evidence clips, Qwen3-VL-4B produced valid JSON for every clip, averaged 1.12 seconds per clip, and used approximately 8.8 GiB peak allocated VRAM. Under this pilot protocol it offered a better accuracy/speed balance than SmolVLM2 and InternVL.
 
-## 5. Verifier 회귀검사
+![VLM comparison](results/vlm_model_comparison.png)
 
-두 문제 episode에서 33 candidates를 검사해 18개를 verified, 15개를 rejected로 판정했다. 잘못된 cutting 후보는 사라졌다. 실제 짧은 slice는 첫 candidate generation에서 누락되어 남았다.
+Exact label scores were low for two reasons. A clip could overlap several GT actions while evaluation selected one primary GT string, and semantically similar VLM wording could differ from the EPIC taxonomy and be counted as incorrect.
 
-따라서 verifier는 오탐 감소에는 도움이 되지만 후보 누락을 복구하지 않는다.
+## 5. Verifier regression test
 
-## 6. 결론
+The verifier examined 33 candidates from two problem episodes: 18 were verified and 15 were rejected. The false cutting candidate disappeared. A brief true slice remained missed because the first-pass candidate generator never proposed it.
 
-하나의 최적 방법보다 목적에 따른 tradeoff가 중요했다. 저장 효율이 우선이면 change evidence가 유리하고, 행동 전체 보존이 우선이면 complete episode가 유리하다. VLM 결과는 검증 단계를 거쳐야 하지만 검증만으로 candidate recall 문제를 해결할 수 없다.
+Therefore, verification can reduce false positives, but it does not solve candidate recall.
 
-## 7. 한계
+## 6. Conclusion
 
-- P04_01 한 영상 중심의 development result
-- participant-held-out 평가 미완료
-- 임상적 손 기능 또는 stroke assessment 검증 없음
-- 개인 GoPro 영상 외부 검증 미완료
-- 같은 VLM을 후보 생성과 검증에 사용할 때 correlated error 가능
+There was no single best temporal method. Change-based evidence clips are useful when storage efficiency is the priority; complete interaction episodes are better when preserving full action context is the priority. VLM output benefits from a verification stage, but verification alone cannot recover missing candidates.
 
-이 결과는 연구용 구현과 실패 분석이며 진단 성능을 주장하지 않는다.
+## 7. Limitations
+
+- The main numbers come from one development video, not a held-out multi-participant benchmark.
+- `P04_01` is action-dense and does not represent a full hour of home life with long inactive periods.
+- The detector audit is small.
+- Exact-string action evaluation underestimates semantic matches and mishandles multi-action clips.
+- Kitchen activity is not equivalent to stroke rehabilitation assessment.
+- The system is not a diagnostic or clinical device.
+
+## 8. Recommended next experiments
+
+1. Record a consented one-hour GoPro home video containing both activity and inactivity.
+2. Test held-out EPIC participants and report confidence intervals.
+3. Add multi-label and synonym-aware VLM evaluation.
+4. Improve first-pass candidate recall with denser temporal proposals.
+5. Compare complete episodes with event-centered evidence views for human review.
+6. Evaluate hand laterality and bimanual-use queries only after creating task-specific ground truth.
