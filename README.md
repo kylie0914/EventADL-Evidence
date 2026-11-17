@@ -17,6 +17,12 @@ Untrimmed egocentric video
   -> second pass visual verification
   -> temporal, storage, detector, and VLM evaluation
 ```
+## Workflow
+<img width="1672" height="941" alt="adl_event_logging_workflow_v5_1" src="https://github.com/user-attachments/assets/0e697519-d794-4357-8a17-9671722369f4" />
+
+This repo includes only the validated offline pipeline. 
+The Web UI and query LLM components are implemented locally but remains under review and the therefore not included.
+
 
 ## Implemented components
 
